@@ -153,6 +153,8 @@ For more details or adjustments, please refer to the specific documentation for 
 This project was developed in collaboration with **Hospital Universitario La Paz** and **Universidad Politécnica de Madrid**. The code and documentation provided are a result of this collaborative effort and aim to support the ongoing research and clinical work related to menstrual cycle tracking and Narcolepsy Type I.
 
 **Author**: Celia Taboada Martín 
+
 **Academic tutor**: Ignacio Oropesa
+
 **Profesional tutor**: Milagros Merino
 
