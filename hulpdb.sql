@@ -1,18 +1,35 @@
 -- =======================================
--- Crear base de datos solo si no existe
+-- Crear usuario hulp si no existe
 -- =======================================
 DO
 $$
 BEGIN
-   IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'HULPAPP') THEN
-      PERFORM dblink_exec('dbname=' || current_database(), 'CREATE DATABASE "HULPAPP";');
-   END IF;
+    IF NOT EXISTS (
+        SELECT FROM pg_catalog.pg_roles WHERE rolname = 'hulp'
+    ) THEN
+        CREATE ROLE hulp LOGIN PASSWORD 'pw_4_hulp';
+    END IF;
 END
 $$ LANGUAGE plpgsql;
 
--- Si no tienes la extensión dblink, puedes simplemente hacerlo así:
--- (ejecuta el CREATE DATABASE manualmente o desde un script separado)
--- CREATE DATABASE "HULPAPP";
+-- =======================================
+-- Crear base de datos HULPAPP si no existe
+-- =======================================
+DO
+$$
+BEGIN
+    IF NOT EXISTS (
+        SELECT FROM pg_database WHERE datname = 'HULPAPP'
+    ) THEN
+        CREATE DATABASE "HULPAPP" OWNER hulp;
+    END IF;
+END
+$$ LANGUAGE plpgsql;
+
+-- =======================================
+-- Otorgar privilegios sobre la base de datos
+-- =======================================
+GRANT ALL PRIVILEGES ON DATABASE "HULPAPP" TO hulp;
 
 -- =======================================
 -- Conectarse a la base de datos HULPAPP
@@ -75,4 +92,4 @@ CREATE TABLE IF NOT EXISTS menstruacion (
 -- =======================================
 -- Mensaje de confirmación
 -- =======================================
-SELECT 'Base de datos HULPAPP y tablas aseguradas (creadas si no existían)' AS mensaje;
+SELECT 'Usuario hulp, base de datos HULPAPP y tablas aseguradas (creadas si no existían)' AS mensaje;
