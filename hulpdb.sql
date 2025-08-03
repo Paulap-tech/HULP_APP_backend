@@ -40,17 +40,39 @@ GRANT ALL PRIVILEGES ON DATABASE "HULPAPP" TO hulp;
 -- Crear tablas solo si no existen
 -- =======================================
 
-CREATE TABLE IF NOT EXISTS usuarios (
+CREATE TABLE usuarios (
   email VARCHAR(90) NOT NULL PRIMARY KEY,
   password VARCHAR(200) NOT NULL,
+  role TEXT CHECK (role IN ('paciente', 'medico')) NOT NULL,
   cicle_days INT,
   age INT,
   peso DECIMAL(5,2),
   talla DECIMAL(5,2),
   tratamiento VARCHAR(255),
   ano_diagnostico INT,
-  ano_sintomas INT
+  ano_sintomas INT,
+  especialidad TEXT,
+  anios_experiencia INT,
+  CONSTRAINT chk_paciente_datos CHECK (
+    role = 'paciente' OR (
+      cicle_days IS NULL AND
+      age IS NULL AND
+      peso IS NULL AND
+      talla IS NULL AND
+      tratamiento IS NULL AND
+      ano_diagnostico IS NULL AND
+      ano_sintomas IS NULL
+    )
+  )
 );
+
+-- Asociación paciente-médico
+CREATE TABLE doctor_patient (
+  doctor_id VARCHAR(90) REFERENCES usuarios(email),
+  patient_id VARCHAR(90) REFERENCES usuarios(email),
+  PRIMARY KEY (doctor_id, patient_id)
+);
+
 
 CREATE TABLE IF NOT EXISTS sintomas (
   id SERIAL PRIMARY KEY,
@@ -78,6 +100,14 @@ CREATE TABLE IF NOT EXISTS registros (
   CHECK (cataplejiaSuelo IN ('si', 'no')),
   CHECK (suenoFragmentado IN ('si', 'no')),
   CHECK (paralisisSuenio IN ('si', 'no'))
+);
+
+CREATE TABLE solicitudes_medico (
+  id SERIAL PRIMARY KEY,
+  paciente_email VARCHAR(90) REFERENCES usuarios(email),
+  medico_email VARCHAR(90) REFERENCES usuarios(email),
+  estado TEXT DEFAULT 'pendiente', -- puede ser 'pendiente', 'aceptada', 'rechazada'
+  fecha_solicitud TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS menstruacion (

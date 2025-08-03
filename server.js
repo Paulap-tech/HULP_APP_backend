@@ -1,3 +1,5 @@
+require('dotenv').config(); 
+
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
@@ -8,13 +10,22 @@ app.use(cors());
 app.use(express.json()); // Maneja JSON
 app.use(express.urlencoded({ extended: true })); // Maneja datos codificados en URL
 
+//así las credenciales no aparecen en el código
 const db = new Pool({
-    user: 'hulp', // usuario de tu base de datos
-    host: 'localhost',
-    database: 'HULPAPP', // nombre de tu base de datos
-    password: 'pw_4_hulp', // tu contraseña
-    port: 5432 // puerto por defecto de PostgreSQL
+    user: process.env.PGUSER,
+    host: process.env.PGHOST,
+    database: process.env.PGDATABASE,
+    password: process.env.PGPASSWORD,
+    port: process.env.PGPORT,
 });
+
+//const db = new Pool({
+    //user: 'hulp', // usuario de tu base de datos
+    //host: 'localhost',
+    //database: 'HULPAPP', // nombre de tu base de datos
+    //password: 'pw_4_hulp', // tu contraseña
+    //port: 5432 // puerto por defecto de PostgreSQL
+//});
 
 // db.connect((err) => {
 //     if (err) {
@@ -24,24 +35,60 @@ const db = new Pool({
 //     console.log('Connected to database as id ' + db.threadId);
 // });
 
-// Ruta para registrar un nuevo usuario
 app.post('/registro', (req, res) => {
-    const { email, password, age, ano_diagnostico, ano_sintomas } = req.body;
+    const { email, password, role, age, ano_diagnostico, ano_sintomas, especialidad, anios_experiencia } = req.body;
+
+    console.log('➡️ Datos recibidos en /registro:', req.body);
+    if (!email || !password || !role || !age){
+        return res.status(400).json({message: 'Faltan datos obligatorios'});
+    }
 
     db.query('SELECT * FROM usuarios WHERE email = $1', [email], (err, results) => {
         if (err) {
-            console.error('Error al consultar el usuario:', err);
-            return res.status(500).json({ message: 'Error en el servidor.' });
+            console.error('❌ Error en SELECT:', err);
+            return res.status(500).json({ message: 'Error en el servidor (SELECT).' });
         }
 
-        if (results.length > 0) {
+        if (results.rows.length > 0) {
             return res.status(409).json({ message: 'El usuario o correo electrónico ya están registrados.' });
         } else {
-            db.query('INSERT INTO usuarios (email, password, age, ano_diagnostico, ano_sintomas) VALUES ($1, $2, $3, $4, $5)', [email, password, age, ano_diagnostico,ano_sintomas], (err, result) => {
-                if (err) {
-                    console.error('Error al insertar el usuario:', err);
-                    return res.status(500).json({ message: 'Error en el servidor.' });
+            let query = '';
+            let values = [];
+
+            if (role === 'paciente') {
+                if (!ano_diagnostico || !ano_sintomas){
+                    return res.status(400).jason({message: 'Faltan datos del paciente'});
                 }
+
+                query = `
+                    INSERT INTO usuarios (email, password, role, age, ano_diagnostico, ano_sintomas)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    `;
+                values = [email,password,role,age,ano_diagnostico,ano_sintomas];
+
+            } else if (role === 'medico') {
+                if (!especialidad || !anios_experiencia ==null) {
+                    return res.status(400).json({ massage: 'Faltan datos del médico'});
+                }
+
+                query = `
+                    INSERT INTO usuarios (email, password, role, age, especialidad, anios_experiencia )
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    `;
+                values = [email, password, role, age, especialidad,anios_experiencia];
+            } else {
+                return res.status(400).json ({ message: 'Rol no válido'});
+            }
+
+            console.log('Ejecutando INSERT con:'.values);
+
+             db.query(query, values, (err, result) => {
+                if (err) {
+                    console.error('❌ Error en INSERT:', err);
+                    return res.status(500).json({ message: 'Error en el servidor (INSERT).' });
+                }
+
+                console.log('✅ Usuario registrado con éxito.');
                 return res.status(201).json({ message: 'Usuario registrado exitosamente.' });
             });
         }
@@ -49,9 +96,8 @@ app.post('/registro', (req, res) => {
 });
 
 
-
 // Ruta para guardar la duración del ciclo
-app.post('/api/ciclo-duracion', (req, res) => {
+app.post('/ciclo-duracion', (req, res) => {  //he quitado /api de delante de /ciclo-duracion
     const { email, ciclo_duracion } = req.body;
 
     if (!email || ciclo_duracion === undefined) {
@@ -70,7 +116,7 @@ app.post('/api/ciclo-duracion', (req, res) => {
             return res.status(500).json({ message: 'Error interno del servidor.' });
         }
 
-        if (results.affectedRows === 0) {
+        if (results.rowCount === 0) {
             return res.status(404).json({ message: 'Usuario no encontrado.' });
         }
 
@@ -248,8 +294,11 @@ app.post('/registros', (req, res) => {
             return res.status(500).json({ message: 'Error interno del servidor.' });
         }
 
-        const faseMenstrual = results.rowCount > 0 ? results.rows[0].fase : null;
-
+        let faseMenstrual = results.rowCount > 0 ? results.rows[0].fase : null;
+        //añadimos la tilde
+        if ((faseMenstrual || '').toLowerCase() === 'lutea') {
+            faseMenstrual = 'lútea';
+        }
         // Ahora guardamos el registro con la fase menstrual
         const insertQuery = 'INSERT INTO registros (date, faseMenstrual, cataplejiaExtremidades, cataplejiaFacial, cataplejiaSuelo, suenoFragmentado, paralisisSuenio, somnolencia, email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)';
         db.query(insertQuery, [fecha, faseMenstrual, cataplejiaExtremidades, cataplejiaFacial, cataplejiaSuelo, suenoFragmentado, paralisisSuenio, somnolencia, email], (err, results) => {
@@ -263,41 +312,317 @@ app.post('/registros', (req, res) => {
     });
 });
 
-// Ruta para obtener los síntomas diarios no relacionados con la narcolepsia de un usuario
-app.post('/sintomas', (req, res) => {
-    const { email, fecha, symptoms } = req.body;
-  
-    // Log de los datos recibidos
-    console.log('Datos recibidos:', { email, fecha, symptoms });
-  
-    // Mapear los síntomas a un formato compatible con la consulta SQL
-    const values = symptoms.map(sintoma => [email, fecha, sintoma]);
-  
-    // Log de los valores que se van a insertar
-    console.log('Valores para insertar:', values);
-  
+/*app.get('/registros/:email', async (req, res) => {
+  const { email } = req.params;
+
+  try {
     const query = `
-      INSERT INTO sintomas (email, fecha, sintoma)
-      VALUES ?
+      SELECT 
+        fecha,
+        cataplejiaExtremidades,
+        cataplejiaFacial,
+        cataplejiaSuelo,
+        suenoFragmentado,
+        paralisisSuenio,
+        somnolencia
+      FROM registros
+      WHERE email = $1
+      ORDER BY fecha DESC
     `;
-  
-    // Ejecutar la consulta SQL
-    db.query(query, [values], (err, results) => {
-      if (err) {
-        // Log del error si ocurre
-        console.error('Error al insertar síntomas:', err);
-        res.status(500).json({ error: 'Database error' });
-      } else {
-        // Log del resultado exitoso
-        console.log('Síntomas insertados con éxito:', results);
-        res.status(200).json({ message: 'Symptoms inserted successfully' });
-      }
+    const result = await db.query(query, [email]);
+
+    const agrupados = {};
+    result.rows.forEach((registro) => {
+      const dia = new Date(registro.fecha).toISOString().slice(0, 10);
+      if (!agrupados[dia]) agrupados[dia] = [];
+      agrupados[dia].push(registro);
     });
+
+    const datosFormateados = Object.entries(agrupados).map(([fecha, episodios]) => ({
+      fecha,
+      episodios
+    }));
+
+    res.status(200).json(datosFormateados);
+  } catch (error) {
+    console.error('Error al obtener registros:', error);
+    res.status(500).json({ error: 'Error de servidor' });
+  }
+});*/
+/*app.get('/registros/:email', async (req, res) => {
+  const { email } = req.params;
+  try {
+    const registros = await db.query('SELECT * FROM registros WHERE email = $1', [email]);
+    res.json(registros.rows);
+  } catch (error) {
+    console.error('Error al obtener registros:', error);
+    res.status(500).json({ error: 'Error al obtener registros' });
+  }
+});*/
+
+
+
+app.post('/sintomas', async (req, res) => {
+  const { email, fecha, symptoms } = req.body;
+
+  console.log('Datos recibidos:', { email, fecha, symptoms });
+
+  if (!email || !fecha || !Array.isArray(symptoms)) {
+    return res.status(400).json({ error: 'Datos incompletos o mal formateados' });
+  }
+
+  try {
+    // Insertar cada síntoma individualmente
+    for (const sintoma of symptoms) {
+      const query = `
+        INSERT INTO sintomas (email, fecha, sintoma)
+        VALUES ($1, $2, $3)
+      `;
+      await db.query(query, [email, fecha, sintoma]);
+    }
+
+    res.status(200).json({ message: 'Síntomas insertados correctamente' });
+  } catch (err) {
+    console.error('Error al insertar síntomas:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+
+// Ruta para obtener los síntomas de un usuario 
+app.get('/sintomas/:email', async (req, res) => {
+  const { email } = req.params;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email requerido' });
+  }
+
+  try {
+    console.log('Consultando síntomas del usuario:', email);
+    const query = 'SELECT fecha, sintoma FROM sintomas WHERE email = $1 ORDER BY fecha DESC';
+    const result = await db.query(query, [email]);
+
+    const agrupados = {};
+    result.rows.forEach(({fecha ,sintoma}) => {
+        const dia = new Date(fecha).toISOString().slice(0, 10);
+        //const dia = fecha.toISOString().slice(0,10);
+        if (!agrupados[dia]){
+            agrupados[dia] = new Set();
+        }
+        agrupados[dia].add(sintoma);
+    });
+
+    const datosFormateados = Object.entries(agrupados).map(([fecha ,sintomasSet]) => ({
+        fecha,
+        sintomas:[...sintomasSet],
+    }));
+
+    //res.status(200).json(result.rows);
+    res.status(200).json(datosFormateados);
+  } catch (err) {
+    console.error('Error al obtener síntomas:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+
+//ruta para asociar pacientes a médicos
+/*app.post('/asociar', (req, res) => {
+    console.log('Body recibido:' , req.body);
+
+    const { doctor_id, patient_id } = req.body;
+
+    if (!doctor_id || !patient_id) {
+        return res.status(400).json({ message: 'Faltan datos.' });
+    }
+
+    const query = `
+      INSERT INTO doctor_patient (doctor_id, patient_id) 
+      VALUES ($1, $2)
+      ON CONFLICT DO NOTHING
+    `;
+    
+    db.query(query, [doctor_id, patient_id], (err, result) => {
+        if (err) {
+            console.error('Error al asociar paciente a médico:', err);
+            return res.status(500).json({ message: 'Error interno del servidor.' });
+        }
+
+        res.status(201).json({ message: 'Paciente asociado correctamente.' });
+    });
+});*/
+//enviar solicitud  al médico
+app.post('/solicitudes', (req, res) => {
+  const { pacienteEmail, medicoEmail } = req.body;
+
+  if (!pacienteEmail || !medicoEmail) {
+    return res.status(400).json({ message: 'Faltan datos.' });
+  }
+
+  const query = `
+    INSERT INTO solicitudes_medico (paciente_email, medico_email, estado, fecha_solicitud)
+    VALUES ($1, $2, 'pendiente', NOW())
+    ON CONFLICT DO NOTHING
+  `;
+
+  db.query(query, [pacienteEmail, medicoEmail], (err, result) => {
+    if (err) {
+      console.error('Error al enviar solicitud:', err);
+      return res.status(500).json({ message: 'Error interno del servidor.' });
+    }
+
+    res.status(201).json({ success: true, message: 'Solicitud enviada.' });
   });
+});
+
+//Ver solicitudes pendientes del médico
+app.get('/solicitudes/:medicoEmail', (req, res) => {
+  const medicoEmail = req.params.medicoEmail;
+
+  const query = `
+    SELECT id, paciente_email, estado , fecha_solicitud
+    FROM solicitudes_medico 
+    WHERE medico_email = $1 AND estado = 'pendiente'
+  `;
+
+  db.query(query, [medicoEmail], (err, result) => {
+    if (err) {
+      console.error('Error al obtener solicitudes:', err);
+      return res.status(500).json({ error: 'Error interno del servidor' });
+    }
+
+    res.status(200).json(result.rows);
+  });
+});
+
+//aceptar o rechazar solicitud del médico
+app.post('/solicitudes/responder', (req, res) => {
+  const { solicitudId, aceptar } = req.body;
+  const nuevoEstado = aceptar ? 'aceptada' : 'rechazada';
+
+  const updateQuery = `UPDATE solicitudes_medico SET estado = $1 WHERE id = $2 RETURNING *`;
+
+  db.query(updateQuery, [nuevoEstado, solicitudId], (err, result) => {
+    if (err) {
+      console.error('Error actualizando solicitud:', err);
+      return res.status(500).json({ error: 'Error interno del servidor' });
+    }
+
+    if (aceptar) {
+      const { paciente_email, medico_email } = result.rows[0];
+
+      const asociarQuery = `
+        INSERT INTO doctor_patient (doctor_id, patient_id)
+        VALUES ($1, $2)
+        ON CONFLICT DO NOTHING
+      `;
+
+      db.query(asociarQuery, [medico_email, paciente_email], (err2) => {
+        if (err2) {
+          console.error('Error al asociar paciente tras aceptación:', err2);
+          return res.status(500).json({ error: 'Error al asociar después de aceptar.' });
+        }
+
+        return res.status(200).json({ success: true, message: 'Solicitud aceptada y paciente asociado.' });
+      });
+    } else {
+      return res.status(200).json({ success: true, message: 'Solicitud rechazada.' });
+    }
+  });
+});
+
+//obtener médico asignado
+app.get('/medico-asignado/:email', (req, res) => {
+  const pacienteEmail = req.params.email;
+
+  const query = `
+    SELECT doctor_id AS medicoEmail
+    FROM doctor_patient
+    WHERE patient_id = $1
+    LIMIT 1
+  `;
+
+  db.query(query, [pacienteEmail], (err, result) => {
+    if (err) {
+      console.error('Error al obtener médico asignado:', err);
+      return res.status(500).json({ error: 'Error interno del servidor' });
+    }
+
+    if (result.rows.length > 0) {
+      res.json({ medicoEmail: result.rows[0].medicoemail });
+    } else {
+      res.json({ medicoEmail: null });
+    }
+  });
+});
+
+
+
+
+//ruta para obtener los pacientes asociados a los médicos
+app.get('/medico/:email/pacientes', (req, res) => {
+    const doctorEmail = req.params.email;
+
+    const query = `
+        SELECT u.*
+        FROM doctor_patient dp
+        JOIN usuarios u ON dp.patient_id = u.email
+        WHERE dp.doctor_id = $1 AND u.role = 'paciente'
+    `;
+
+    db.query(query, [doctorEmail], (err, results) => {
+        if (err) {
+            console.error('Error al obtener pacientes del médico:', err);
+            return res.status(500).json({ error: 'Error interno del servidor' });
+        }
+        // Eliminar contraseñas antes de enviar los datos! mirar bien
+        const pacientes = results.rows.map(p => {
+            const { password, ...safeData } = p;
+            return safeData;
+        });
+
+        res.status(200).json(results.rows);
+    });
+});
+
+// Obtener todos los médicos
+app.get('/medicos', (req, res) => {
+    const query = `
+    SELECT email AS id
+    FROM usuarios
+    WHERE role = 'medico'
+  `;
+  /*const query = `SELECT * FROM usuarios WHERE role = 'medico'`;*/
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error al obtener médicos:', err);
+      return res.status(500).json({ error: 'Error interno del servidor' });
+    }
+    console.log('Médicos encontrados:', results.rows); 
+    res.status(200).json(results.rows); // No contiene contraseñas ni datos innecesarios
+
+    /*// Eliminar contraseñas antes de enviar
+    const medicos = results.rows.map(m => {
+      const { password, ...safeData } = m;
+      return safeData;
+    });
+
+    res.status(200).json(medicos);*/
+  });
+});
+
+
+
   
+app.get('/test', (req, res) => {
+  res.json({ mensaje: 'Servidor OK' });
+});
+
 
 const port = 3000;
+
 
 app.listen(port, () => {
     console.log(`Servidor backend corriendo en http://localhost:${port}`);
 });
+
