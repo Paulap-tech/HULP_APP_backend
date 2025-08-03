@@ -13,6 +13,7 @@ In the second phase of the HULP_APP project, the focus was on developing a MySQL
    - **Fields**:
      - `email`: varchar(90), Primary Key
      - `password`: varchar(200)
+     - `role`: text check (role in 'paciente', 'medico')
      - `cicle_days`: int
      - `age`: int
      - `peso`: decimal(5,2)
@@ -20,6 +21,8 @@ In the second phase of the HULP_APP project, the focus was on developing a MySQL
      - `tratamiento`: varchar(255)
      - `ano_diagnostico`: int
      - `ano_sintomas`: int
+     - `especialidad`: text
+     
 
 2. **sintomas**
    - **Description**: Records symptoms experienced by users.
@@ -51,6 +54,21 @@ In the second phase of the HULP_APP project, the focus was on developing a MySQL
      - `fase`: varchar(20)
      - `fecha_inicio`: date
      - `fecha_fin`: date
+
+5. **doctor_patient**
+   - **Description**: Patient-Doctor asociation
+   - **Fields**:
+     - `doctor_id`: varchar(90) references usuarios(email)
+     - `patient_id`: varchar(90) references usuarios(email)
+
+6. **solicitudes_medico**
+   - **Description**: keeps track of the request of the patients
+   - **Fields**: 
+    -`id`: Primary Key
+    -`paciente_email`: varchar(90) references usuarios(email)
+    -`medico_email`: varchar(90) references usuarios(email)
+    -`estado`: text
+    -`fecha_solicitud`: timesatamp
 
 ## Setting Up the Database
 
