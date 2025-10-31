@@ -19,33 +19,18 @@ const db = new Pool({
     port: process.env.PGPORT,
 });
 
-//const db = new Pool({
-    //user: 'hulp', // usuario de tu base de datos
-    //host: 'localhost',
-    //database: 'HULPAPP', // nombre de tu base de datos
-    //password: 'pw_4_hulp', // tu contraseña
-    //port: 5432 // puerto por defecto de PostgreSQL
-//});
-
-// db.connect((err) => {
-//     if (err) {
-//         console.error('Error connecting to database: ' + err.stack);
-//         return;
-//     }
-//     console.log('Connected to database as id ' + db.threadId);
-// });
 
 app.post('/registro', (req, res) => {
     const { email, password, role, age, ano_diagnostico, ano_sintomas, especialidad, anios_experiencia } = req.body;
 
-    console.log('➡️ Datos recibidos en /registro:', req.body);
+    console.log('Datos recibidos en /registro:', req.body);
     if (!email || !password || !role || !age){
         return res.status(400).json({message: 'Faltan datos obligatorios'});
     }
 
     db.query('SELECT * FROM usuarios WHERE email = $1', [email], (err, results) => {
         if (err) {
-            console.error('❌ Error en SELECT:', err);
+            console.error('Error en SELECT:', err);
             return res.status(500).json({ message: 'Error en el servidor (SELECT).' });
         }
 
@@ -84,11 +69,11 @@ app.post('/registro', (req, res) => {
 
              db.query(query, values, (err, result) => {
                 if (err) {
-                    console.error('❌ Error en INSERT:', err);
+                    console.error('Error en INSERT:', err);
                     return res.status(500).json({ message: 'Error en el servidor (INSERT).' });
                 }
 
-                console.log('✅ Usuario registrado con éxito.');
+                console.log('Usuario registrado con éxito.');
                 return res.status(201).json({ message: 'Usuario registrado exitosamente.' });
             });
         }
@@ -97,7 +82,7 @@ app.post('/registro', (req, res) => {
 
 
 // Ruta para guardar la duración del ciclo
-app.post('/ciclo-duracion', (req, res) => {  //he quitado /api de delante de /ciclo-duracion
+app.post('/ciclo-duracion', (req, res) => {  
     const { email, ciclo_duracion } = req.body;
 
     if (!email || ciclo_duracion === undefined) {
@@ -312,55 +297,6 @@ app.post('/registros', (req, res) => {
     });
 });
 
-/*app.get('/registros/:email', async (req, res) => {
-  const { email } = req.params;
-
-  try {
-    const query = `
-      SELECT 
-        fecha,
-        cataplejiaExtremidades,
-        cataplejiaFacial,
-        cataplejiaSuelo,
-        suenoFragmentado,
-        paralisisSuenio,
-        somnolencia
-      FROM registros
-      WHERE email = $1
-      ORDER BY fecha DESC
-    `;
-    const result = await db.query(query, [email]);
-
-    const agrupados = {};
-    result.rows.forEach((registro) => {
-      const dia = new Date(registro.fecha).toISOString().slice(0, 10);
-      if (!agrupados[dia]) agrupados[dia] = [];
-      agrupados[dia].push(registro);
-    });
-
-    const datosFormateados = Object.entries(agrupados).map(([fecha, episodios]) => ({
-      fecha,
-      episodios
-    }));
-
-    res.status(200).json(datosFormateados);
-  } catch (error) {
-    console.error('Error al obtener registros:', error);
-    res.status(500).json({ error: 'Error de servidor' });
-  }
-});*/
-/*app.get('/registros/:email', async (req, res) => {
-  const { email } = req.params;
-  try {
-    const registros = await db.query('SELECT * FROM registros WHERE email = $1', [email]);
-    res.json(registros.rows);
-  } catch (error) {
-    console.error('Error al obtener registros:', error);
-    res.status(500).json({ error: 'Error al obtener registros' });
-  }
-});*/
-
-
 
 app.post('/sintomas', async (req, res) => {
   const { email, fecha, symptoms } = req.body;
@@ -426,31 +362,6 @@ app.get('/sintomas/:email', async (req, res) => {
 });
 
 
-//ruta para asociar pacientes a médicos
-/*app.post('/asociar', (req, res) => {
-    console.log('Body recibido:' , req.body);
-
-    const { doctor_id, patient_id } = req.body;
-
-    if (!doctor_id || !patient_id) {
-        return res.status(400).json({ message: 'Faltan datos.' });
-    }
-
-    const query = `
-      INSERT INTO doctor_patient (doctor_id, patient_id) 
-      VALUES ($1, $2)
-      ON CONFLICT DO NOTHING
-    `;
-    
-    db.query(query, [doctor_id, patient_id], (err, result) => {
-        if (err) {
-            console.error('Error al asociar paciente a médico:', err);
-            return res.status(500).json({ message: 'Error interno del servidor.' });
-        }
-
-        res.status(201).json({ message: 'Paciente asociado correctamente.' });
-    });
-});*/
 //enviar solicitud  al médico
 app.post('/solicitudes', (req, res) => {
   const { pacienteEmail, medicoEmail } = req.body;
@@ -600,14 +511,6 @@ app.get('/medicos', (req, res) => {
     }
     console.log('Médicos encontrados:', results.rows); 
     res.status(200).json(results.rows); // No contiene contraseñas ni datos innecesarios
-
-    /*// Eliminar contraseñas antes de enviar
-    const medicos = results.rows.map(m => {
-      const { password, ...safeData } = m;
-      return safeData;
-    });
-
-    res.status(200).json(medicos);*/
   });
 });
 
