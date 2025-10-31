@@ -622,7 +622,7 @@ app.get('/test', (req, res) => {
 const port = 3000;
 
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
     console.log(`Servidor backend corriendo en http://localhost:${port}`);
 });
 

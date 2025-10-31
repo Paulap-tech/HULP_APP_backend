@@ -93,6 +93,7 @@ To set up the MySQL database on your local machine, follow these steps:
    - Execute the following SQL commands to create the necessary tables:
 
      ```sql
+
      CREATE TABLE usuarios (
        email VARCHAR(90) NOT NULL PRIMARY KEY,
        password VARCHAR(200) NOT NULL,
@@ -102,7 +103,20 @@ To set up the MySQL database on your local machine, follow these steps:
        talla DECIMAL(5,2),
        tratamiento VARCHAR(255),
        ano_diagnostico INT,
-       ano_sintomas INT
+       ano_sintomas INT,
+       especialidad TEXT,
+       anios_experiencia INT,
+       CONSTRAINT chk_paciente_datos CHECK (
+         role = 'paciente' OR (
+           cicle_days IS NULL AND
+           age IS NULL AND
+           peso IS NULL AND
+           talla IS NULL AND
+           tratamiento IS NULL AND
+           ano_diagnostico IS NULL AND
+           ano_sintomas IS NULL
+         )
+       )
      );
 
      CREATE TABLE sintomas (
@@ -111,6 +125,12 @@ To set up the MySQL database on your local machine, follow these steps:
        fecha DATE NOT NULL,
        sintoma VARCHAR(255) NOT NULL,
        FOREIGN KEY (email) REFERENCES usuarios(email)
+     );
+
+     CREATE TABLE doctor_patient (
+       doctor_id VARCHAR(90) REFERENCES usuarios(email),
+       patient_id VARCHAR(90) REFERENCES usuarios(email),
+       PRIMARY KEY (email) REFERENCES usuarios(email)
      );
 
      CREATE TABLE registros (
@@ -124,7 +144,13 @@ To set up the MySQL database on your local machine, follow these steps:
        paralisisSuenio ENUM('si', 'no') NOT NULL,
        somnolencia INT NOT NULL,
        email VARCHAR(90) NOT NULL,
-       FOREIGN KEY (email) REFERENCES usuarios(email)
+       FOREIGN KEY (email) REFERENCES usuarios(email),
+       CHECK (faseMestrual IN ('menstruacion', 'lútea')),
+       CHECK (cataplejiaExtremidades IN ('si', 'no')),
+       CHECK (cataplejiaFacial IN ('si', 'no')),
+       CHECK (cataplejiaSuelo IN ('si', 'no')),
+       CHECK (suenoFragmentado IN ('si', 'no')),
+       CHECK (paralisisSuenio IN ('si', 'no'))
      );
 
      CREATE TABLE menstruacion (
@@ -135,6 +161,16 @@ To set up the MySQL database on your local machine, follow these steps:
        fecha_fin DATE NOT NULL,
        FOREIGN KEY (email) REFERENCES usuarios(email)
      );
+
+     CREATE TABLE solicitudes_medico (
+       id SERIAL PRIMARY KEY,
+       paciente_email VARCHAR(90) REFERENCES usuarios(email),
+       medico_email VARCHAR(90) REFERENCES usuarios(email),
+       estado TEXT DEFAULT 'pendiente', --puede ser 'pendiente','aceptada' o 'rechazada'
+     );
+
+
+
      ```
 
 ## Server Setup
@@ -170,7 +206,7 @@ For more details or adjustments, please refer to the specific documentation for 
 
 This project was developed in collaboration with **Hospital Universitario La Paz** and **Universidad Politécnica de Madrid**. The code and documentation provided are a result of this collaborative effort and aim to support the ongoing research and clinical work related to menstrual cycle tracking and Narcolepsy Type I.
 
-**Author**: Celia Taboada Martín 
+**Author**: Celia Taboada Martín and Paula García Alonso
 
 **Academic tutor**: Ignacio Oropesa
 
